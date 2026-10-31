@@ -1,0 +1,15 @@
+date,region,category,product,orders,revenue,customers
+2026-01-05,North,Electronics,Headphones,120,36000,105
+2026-02-05,North,Electronics,Headphones,132,39600,114
+2026-03-05,South,Home,Blender,95,28500,88
+2026-04-05,West,Electronics,Headphones,140,42000,125
+2026-05-05,West,Home,Blender,102,30600,94
+2026-06-05,North,Electronics,Headphones,138,41400,120
+2026-07-05,South,Home,Blender,110,33000,100
+2026-08-05,West,Electronics,Headphones,150,45000,132
+2026-09-05,West,Electronics,Headphones,68,20400,61
+2026-09-06,North,Home,Blender,84,25200,75
+2026-09-07,South,Electronics,Headphones,70,21000,63
+2026-09-08,West,Home,Blender,79,23700,71
+2026-09-09,North,Electronics,Headphones,72,21600,65
+2026-09-10,South,Home,Blender,81,24300,74
