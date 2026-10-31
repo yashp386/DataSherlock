@@ -13,6 +13,12 @@ function formatLabel(value, monthly) {
   return raw.length > 12 ? raw.slice(0, 11) + "…" : raw;
 }
 
+function formatTick(value) {
+  if (Math.abs(value) >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+  if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}k`;
+  return Math.round(value).toLocaleString();
+}
+
 function DataChart({ query, index }) {
   const rows = query.rows || [];
 
@@ -26,16 +32,21 @@ function DataChart({ query, index }) {
   }
 
   const width = 620;
-  const height = 260;
-  const left = 62;
-  const right = 22;
-  const top = 30;
-  const bottom = 62;
+  const height = 280;
+
+  // Reserve a dedicated y-axis gutter. Previously the first bar started
+  // at x=left and covered the y-axis tick labels.
+  const axisLeft = 62;
+  const plotLeft = 108;
+  const right = 24;
+  const top = 34;
+  const bottom = 64;
 
   const values = rows.map(row => Number(row.result));
   const max = Math.max(...values, 1);
-  const chartWidth = width - left - right;
-  const chartHeight = height - top - bottom;
+  const plotWidth = width - plotLeft - right;
+  const plotHeight = height - top - bottom;
+  const plotBottom = top + plotHeight;
 
   const isMonthly = rows.some(row =>
     /^\d{4}-\d{2}-\d{2}/.test(String(row.group_value))
@@ -45,19 +56,19 @@ function DataChart({ query, index }) {
     ? Math.max(...values.slice(0, -1))
     : 0;
 
-  const anomalyIndex = isMonthly && values.length > 1 &&
-    values[values.length - 1] > earlierMax * 1.5
+  const anomalyIndex =
+    isMonthly && values.length > 1 && values[values.length - 1] > earlierMax * 1.5
       ? values.length - 1
       : -1;
 
   const points = rows.map((row, i) => {
-    const x = left + (
+    const x = plotLeft + (
       rows.length === 1
-        ? chartWidth / 2
-        : (i / (rows.length - 1)) * chartWidth
+        ? plotWidth / 2
+        : (i / (rows.length - 1)) * plotWidth
     );
 
-    const y = top + chartHeight - (Number(row.result) / max) * chartHeight;
+    const y = top + plotHeight - (Number(row.result) / max) * plotHeight;
 
     return {
       x,
@@ -73,21 +84,28 @@ function DataChart({ query, index }) {
   const purpose = query.purpose || `Query ${index + 1}`;
   const lowerPurpose = purpose.toLowerCase();
 
-  let subtitle = "Revenue comparison";
+  let subtitle = "Value comparison";
   if (isMonthly) subtitle = "Monthly trend";
-  else if (lowerPurpose.includes("product")) subtitle = "Revenue by product";
-  else if (lowerPurpose.includes("region")) subtitle = "Revenue by region";
-  else if (lowerPurpose.includes("categor")) subtitle = "Revenue by category";
+  else if (lowerPurpose.includes("product")) subtitle = "By product";
+  else if (lowerPurpose.includes("region")) subtitle = "By region";
+  else if (lowerPurpose.includes("categor")) subtitle = "By category";
+  else if (lowerPurpose.includes("customer")) subtitle = "Customer count";
+  else if (lowerPurpose.includes("order")) subtitle = "Order count";
 
-  const isAnomalyQuery = lowerPurpose.includes("anomal") ||
-    lowerPurpose.includes("spike");
+  const isAnomalyQuery =
+    lowerPurpose.includes("anomal") || lowerPurpose.includes("spike");
+
+  const barWidth = Math.min(48, (plotWidth / Math.max(points.length, 1)) * 0.55);
 
   return (
     <div className="chart-card">
       <div className="chart-heading">
         <div>
           <b>{purpose}</b>
-          <small>{subtitle}{anomalyIndex >= 0 || isAnomalyQuery ? " · anomaly view" : ""}</small>
+          <small>
+            {subtitle}
+            {anomalyIndex >= 0 || isAnomalyQuery ? " · anomaly view" : ""}
+          </small>
         </div>
         <span>QUERY {query.query_number || index + 1}</span>
       </div>
@@ -99,11 +117,13 @@ function DataChart({ query, index }) {
           aria-label={purpose}
         >
           {[0, 0.25, 0.5, 0.75, 1].map((fraction, i) => {
-            const y = top + chartHeight * fraction;
+            const y = top + plotHeight * fraction;
+            const tickValue = max * (1 - fraction);
+
             return (
               <g key={i}>
                 <line
-                  x1={left}
+                  x1={plotLeft}
                   y1={y}
                   x2={width - right}
                   y2={y}
@@ -111,13 +131,13 @@ function DataChart({ query, index }) {
                   strokeDasharray="4 4"
                 />
                 <text
-                  x={left - 9}
+                  x={axisLeft}
                   y={y + 4}
                   textAnchor="end"
-                  fill="#8998ae"
+                  fill="#91a2bc"
                   fontSize="10"
                 >
-                  {Math.round(max * (1 - fraction)).toLocaleString()}
+                  {formatTick(tickValue)}
                 </text>
               </g>
             );
@@ -151,13 +171,14 @@ function DataChart({ query, index }) {
                     stroke="#111827"
                     strokeWidth="2"
                   />
-                  <title>{point.label}: {point.value.toLocaleString()}</title>
+                  <title>
+                    {point.label}: {point.value.toLocaleString()}
+                  </title>
                 </g>
               ))}
             </>
           ) : (
             points.map((point, i) => {
-              const barWidth = Math.min(48, chartWidth / points.length * 0.55);
               const highlight = isAnomalyQuery && i === 0;
 
               return (
@@ -166,18 +187,21 @@ function DataChart({ query, index }) {
                     x={point.x - barWidth / 2}
                     y={point.y}
                     width={barWidth}
-                    height={Math.max(1, top + chartHeight - point.y)}
+                    height={Math.max(1, plotBottom - point.y)}
                     rx="5"
                     fill={highlight || i === 0 ? "#9b8cff" : "#5d74b9"}
                   >
-                    <title>{point.label}: {point.value.toLocaleString()}</title>
+                    <title>
+                      {point.label}: {point.value.toLocaleString()}
+                    </title>
                   </rect>
                   <text
                     x={point.x}
-                    y={Math.max(top - 5, point.y - 8)}
+                    y={Math.max(top - 7, point.y - 9)}
                     textAnchor="middle"
-                    fill="#dce4f2"
+                    fill="#e4ebf7"
                     fontSize="10"
+                    fontWeight="600"
                   >
                     {point.value.toLocaleString()}
                   </text>
@@ -190,9 +214,9 @@ function DataChart({ query, index }) {
             <text
               key={i}
               x={point.x}
-              y={height - 27}
+              y={height - 25}
               textAnchor="middle"
-              fill={i === anomalyIndex ? "#fb9aa8" : "#9aa8bd"}
+              fill={i === anomalyIndex ? "#fb9aa8" : "#a7b5ca"}
               fontSize="10"
             >
               {point.displayLabel}
