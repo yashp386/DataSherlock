@@ -1472,6 +1472,7 @@ footer {
   color: #b2bfd2;
   font-size: 11px;
   line-height: 1.55;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
